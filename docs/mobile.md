@@ -30,7 +30,8 @@ node scripts/generate-static-login.js --auth-tag 6 --out mobile/static-login.jso
 | 平台 | 文件 | 说明 |
 |------|------|------|
 | iOS | [mobile/ios/README.md](../mobile/ios/README.md) | 快捷指令（Shortcuts） |
-| Android | [mobile/android/gdwlan.sh](../mobile/android/gdwlan.sh) | Termux / sh 脚本 |
+| iOS | [mobile/ios/gdwlan-login.js](../mobile/ios/gdwlan-login.js) | Scriptable 脚本（运行时 RC4） |
+| Android | [mobile/android/README.md](../mobile/android/README.md) | Termux / MacroDroid / Tasker |
 | HarmonyOS | [mobile/harmonyos/GdwlanLogin.ets](../mobile/harmonyos/GdwlanLogin.ets) | ArkTS 登录函数 |
 
 ## Android 进阶（完整功能）
