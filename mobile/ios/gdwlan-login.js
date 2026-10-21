@@ -51,5 +51,4 @@ async function main() {
   }
 }
 
-await main();
-Script.complete();
+main().then(() => Script.complete());
