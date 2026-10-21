@@ -18,6 +18,7 @@
 - 🔁 **守护模式**：定时检测网络，断网自动重登
 - 🖥️ **跨平台**：macOS / Linux / Windows（Node.js ≥ 18）
 - ⚙️ **配置驱动**：账号、密码、门户、加密方式、表单字段均可配置
+- 📱 **移动端**：iOS 快捷指令 / Android / HarmonyOS，见 [docs/mobile.md](docs/mobile.md)
 
 ## 🚀 快速开始
 
