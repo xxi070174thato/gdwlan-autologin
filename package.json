@@ -1,0 +1,31 @@
+{
+  "name": "gdwlan-autologin",
+  "version": "1.0.0",
+  "description": "跨平台校园网 Web 认证自动登录工具（城市热点/广州热点 ePortal 等），支持 curl 直连与无头浏览器双引擎",
+  "license": "MIT",
+  "bin": {
+    "gdwlan": "bin/gdwlan.js"
+  },
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "daemon": "node src/index.js daemon",
+    "detect": "node src/index.js detect",
+    "install-browser": "npx playwright install chromium"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "optionalDependencies": {
+    "playwright": "^1.48.0"
+  },
+  "keywords": [
+    "campus-network",
+    "captive-portal",
+    "auto-login",
+    "eportal",
+    "城市热点",
+    "校园网"
+  ]
+}

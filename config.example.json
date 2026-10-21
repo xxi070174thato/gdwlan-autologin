@@ -1,0 +1,31 @@
+{
+  "username": "你的学号",
+  "password": "你的密码",
+  "portal": "",
+  "loginPath": "/ac_portal/login.php",
+  "checkUrls": [
+    "http://connect.rom.miui.com/generate_204",
+    "http://captive.apple.com/hotspot-detect.html",
+    "http://www.msftconnecttest.com/connecttest.txt"
+  ],
+  "engine": "auto",
+  "encryption": "rc4",
+  "interval": 15,
+  "timeout": 12000,
+  "form": {
+    "oprField": "opr",
+    "oprValue": "pwdLogin",
+    "userField": "userName",
+    "pwdField": "pwd",
+    "authTagField": "auth_tag",
+    "rememberField": "rememberPwd",
+    "rememberValue": "1"
+  },
+  "browser": {
+    "headless": true,
+    "usernameSelector": "",
+    "passwordSelector": "",
+    "submitSelector": "",
+    "submitText": ""
+  }
+}
