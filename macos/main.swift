@@ -1,13 +1,36 @@
 import AppKit
 import Foundation
 
-// ===================== 配置（如需修改账号/密码/门户地址，改这里） =====================
-struct Config {
-    static let portalURL = "https://v.sut.edu.cn:444/ac_portal/login.php"   // 认证门户登录端点
-    static let checkURL  = "http://connect.rom.miui.com/generate_204"        // 联网检测地址（204=已联网）
-    static let username  = "261206303"                                        // 账号（学号）
-    static let password  = "Thato221@"                                        // 密码
-    static let interval: TimeInterval = 15.0                                  // 检测间隔（秒）
+// ===================== 运行时配置（从 ~/.gdwlan/config.json 读取，与 Node CLI 共用） =====================
+struct RuntimeConfig {
+    var username = ""
+    var password = ""
+    var portal = ""                       // 留空则自动探测
+    var loginPath = "/ac_portal/login.php"
+    var encryption = "rc4"                // rc4 | plain
+    var interval: TimeInterval = 15
+    var checkURL = "http://connect.rom.miui.com/generate_204"
+}
+
+func loadRuntimeConfig() -> RuntimeConfig {
+    var c = RuntimeConfig()
+    let home = FileManager.default.homeDirectoryForCurrentUser
+    let path = home.appendingPathComponent(".gdwlan/config.json").path
+    guard FileManager.default.fileExists(atPath: path),
+          let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+          let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+        return c
+    }
+    c.username = obj["username"] as? String ?? ""
+    c.password = obj["password"] as? String ?? ""
+    c.portal = obj["portal"] as? String ?? ""
+    c.loginPath = obj["loginPath"] as? String ?? c.loginPath
+    c.encryption = obj["encryption"] as? String ?? c.encryption
+    c.interval = (obj["interval"] as? NSNumber)?.doubleValue ?? c.interval
+    if let urls = obj["checkUrls"] as? [String], let first = urls.first {
+        c.checkURL = first
+    }
+    return c
 }
 
 // ===================== RC4（与门户 do_encrypt_rc4 一致，输出小写 hex） =====================
@@ -48,19 +71,36 @@ func runCurl(_ args: [String]) -> (Int32, String) {
     return (p.terminationStatus, text)
 }
 
-// 检测是否已联网（已认证）
-func checkOnline() -> Bool {
-    let (_, code) = runCurl(["-s", "-m", "8", "-o", "/dev/null", "-w", "%{http_code}", Config.checkURL])
+func checkOnline(_ checkURL: String) -> Bool {
+    let (_, code) = runCurl(["-s", "-m", "8", "-o", "/dev/null", "-w", "%{http_code}", checkURL])
     return code == "204"
 }
 
-// 执行一次登录，返回 (是否成功, 提示信息)
-func doLogin() -> (Bool, String) {
-    let ts = String(Int64(Date().timeIntervalSince1970 * 1000))
-    let enc = rc4Hex(Config.password, ts)
-    let body = "opr=pwdLogin&userName=\(Config.username)&pwd=\(enc)&auth_tag=\(ts)&rememberPwd=1"
-    let (_, text) = runCurl(["-s", "-m", "12", "-k", "-d", body, Config.portalURL])
+// 从重定向 Location 自动探测门户 origin
+func detectPortal(_ checkURL: String) -> String? {
+    let (_, loc) = runCurl(["-s", "-m", "8", "-o", "/dev/null", "-w", "%{redirect_url}", checkURL])
+    let t = loc.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !t.isEmpty, let u = URL(string: t),
+          let scheme = u.scheme, let host = u.host else { return nil }
+    let isPortal = t.range(of: "ac_portal", options: .caseInsensitive) != nil
+        || t.range(of: "portal", options: .caseInsensitive) != nil
+        || t.range(of: "login", options: .caseInsensitive) != nil
+    guard isPortal else { return nil }
+    let port = u.port.map { ":\($0)" } ?? ""
+    return "\(scheme)://\(host)\(port)"
+}
 
+func encryptPassword(_ cfg: RuntimeConfig, _ ts: String) -> String {
+    if cfg.encryption == "rc4" { return rc4Hex(cfg.password, ts) }
+    return cfg.password
+}
+
+func doLogin(_ cfg: RuntimeConfig, _ portal: String) -> (Bool, String) {
+    let ts = String(Int64(Date().timeIntervalSince1970 * 1000))
+    let enc = encryptPassword(cfg, ts)
+    let body = "opr=pwdLogin&userName=\(cfg.username)&pwd=\(enc)&auth_tag=\(ts)&rememberPwd=1"
+    let url = portal + cfg.loginPath
+    let (_, text) = runCurl(["-s", "-m", "12", "-k", "-d", body, url])
     var success = false
     var msg = "无响应"
     if let data = text.data(using: .utf8),
@@ -69,9 +109,7 @@ func doLogin() -> (Bool, String) {
         else if let v = obj["success"] as? Int { success = v != 0 }
         else if let v = obj["success"] as? String { success = (v == "true" || v == "1") }
         if let m = obj["msg"] as? String { msg = m }
-    } else if !text.isEmpty {
-        msg = text
-    }
+    } else if !text.isEmpty { msg = text }
     return (success, msg)
 }
 
@@ -83,13 +121,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var timer: Timer?
     let workQueue = DispatchQueue(label: "gdwlan.work")
     var busy = false
+    let cfg = loadRuntimeConfig()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
         buildWindow()
-        tick()
-        timer = Timer.scheduledTimer(timeInterval: Config.interval, target: self,
-                                     selector: #selector(tick), userInfo: nil, repeats: true)
+        if cfg.username.isEmpty || cfg.password.isEmpty {
+            updateStatus("⚠️ 未找到配置", detail: "请在 ~/.gdwlan/config.json 中填写 username / password（参考 config.example.json）")
+        } else {
+            tick()
+            timer = Timer.scheduledTimer(timeInterval: cfg.interval, target: self, selector: #selector(tick), userInfo: nil, repeats: true)
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { return false }
@@ -122,7 +164,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.center()
 
         let content = NSView()
-
         let titleLabel = NSTextField(labelWithString: "GD-WLAN 校园网自动登录")
         titleLabel.font = NSFont.boldSystemFont(ofSize: 16)
 
@@ -166,25 +207,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
+    func resolvePortal() -> String? {
+        if !cfg.portal.isEmpty { return cfg.portal }
+        return detectPortal(cfg.checkURL)
+    }
+
     @objc func tick() {
         guard !busy else { return }
         busy = true
         updateStatus("检测网络中…", detail: "")
         workQueue.async {
-            if checkOnline() {
+            if checkOnline(self.cfg.checkURL) {
                 DispatchQueue.main.async {
                     self.busy = false
-                    self.updateStatus("✅ 已连接并已认证", detail: "持续监控中（每 \(Int(Config.interval)) 秒检测一次），断网会自动重登。")
+                    self.updateStatus("✅ 已连接并已认证", detail: "持续监控中（每 \(Int(self.cfg.interval)) 秒检测一次），断网会自动重登。")
+                }
+            } else if let portal = self.resolvePortal() {
+                let (ok, msg) = doLogin(self.cfg, portal)
+                DispatchQueue.main.async {
+                    self.busy = false
+                    if ok { self.updateStatus("✅ 登录成功", detail: msg) }
+                    else { self.updateStatus("⚠️ 登录失败", detail: msg) }
                 }
             } else {
-                let (ok, msg) = doLogin()
                 DispatchQueue.main.async {
                     self.busy = false
-                    if ok {
-                        self.updateStatus("✅ 登录成功", detail: msg)
-                    } else {
-                        self.updateStatus("⚠️ 登录失败", detail: msg)
-                    }
+                    self.updateStatus("⚠️ 未探测到门户", detail: "请确认已连接校园 WiFi，或在 config.json 中手动填写 portal")
                 }
             }
         }
@@ -192,17 +240,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func loginNow() {
         guard !busy else { return }
+        guard let portal = resolvePortal() else {
+            updateStatus("⚠️ 未探测到门户", detail: "请在 config.json 中手动填写 portal")
+            return
+        }
         busy = true
         updateStatus("正在登录…", detail: "")
         workQueue.async {
-            let (ok, msg) = doLogin()
+            let (ok, msg) = doLogin(self.cfg, portal)
             DispatchQueue.main.async {
                 self.busy = false
-                if ok {
-                    self.updateStatus("✅ 登录成功", detail: msg)
-                } else {
-                    self.updateStatus("⚠️ 登录失败", detail: msg)
-                }
+                if ok { self.updateStatus("✅ 登录成功", detail: msg) }
+                else { self.updateStatus("⚠️ 登录失败", detail: msg) }
             }
         }
     }

@@ -12,7 +12,8 @@
     "start": "node src/index.js",
     "daemon": "node src/index.js daemon",
     "detect": "node src/index.js detect",
-    "install-browser": "npx playwright install chromium"
+    "install-browser": "npx playwright install chromium",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=18"

@@ -1,5 +1,10 @@
 # gdwlan-autologin
 
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D18-green.svg)](package.json)
+[![CI](https://github.com/xxi070174thato/gdwlan-autologin/actions/workflows/ci.yml/badge.svg)](https://github.com/xxi070174thato/gdwlan-autologin/actions/workflows/ci.yml)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/xxi070174thato/gdwlan-autologin/pulls)
+
 跨平台校园网 Web 认证自动登录工具。
 
 连上校园 WiFi 后，自动检测认证门户、完成登录，并在断网/掉线时自动重连。开箱即用，也支持为不同学校/不同认证体系灵活配置。
@@ -117,20 +122,58 @@ npm i playwright && npx playwright install chromium
 
 ## English
 
-A cross-platform auto-login tool for campus-network Web authentication (captive portal).
+A cross-platform auto-login tool for campus-network Web authentication (captive portals).
 
-- Auto-detects the portal after connecting to campus WiFi
-- Two login engines: lightweight `curl` (for the common ePortal / CityHotspot system,
-  RC4/plain encryption) and a Playwright headless `browser` engine (works with any portal)
-- Daemon mode: periodically checks connectivity and re-logs-in on disconnection
-- Config-driven; runs on macOS / Linux / Windows with Node.js ≥ 18
+### Features
+
+- 🔍 **Auto-detect the portal**: no need to find the auth URL manually
+- ⚡ **Two login engines**
+  - `curl`: lightweight, zero dependencies, for the common ePortal / CityHotspot system (RC4 / plaintext)
+  - `browser`: Playwright headless browser, works with **any** portal (the portal's own JS handles encryption)
+- 🔁 **Daemon mode**: periodically checks connectivity and re-logs-in on disconnection
+- 🖥️ **Cross-platform**: macOS / Linux / Windows (Node.js ≥ 18)
+- ⚙️ **Config-driven**: username, password, portal, encryption, and form fields are all configurable
+
+### Quick start
 
 ```bash
-git clone https://github.com/<your-username>/gdwlan-autologin.git
+git clone https://github.com/xxi070174thato/gdwlan-autologin.git
 cd gdwlan-autologin
 cp config.example.json ~/.gdwlan/config.json   # fill in username/password
 node src/index.js login
 node src/index.js daemon
 ```
 
-See [config.example.json](config.example.json) for all options. MIT licensed.
+### Configuration
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `username` | — | Account (student ID) |
+| `password` | — | Password |
+| `portal` | `""` | Portal URL; leave empty for auto-detection |
+| `engine` | `auto` | `auto` / `curl` / `browser` |
+| `encryption` | `rc4` | `rc4` / `plain` (curl engine) |
+| `interval` | `15` | Daemon check interval (seconds) |
+| `form.*` | — | curl engine form field names |
+| `browser.*` | — | browser engine selector overrides |
+
+See [config.example.json](config.example.json) for the full list.
+
+### Engines
+
+- **curl engine** (default): POSTs directly to `<portal>/ac_portal/login.php`, encrypting the
+  password with RC4 using the millisecond timestamp as the key. Lightweight and fast.
+- **browser engine**: launches headless Chromium via Playwright, fills in the form, and lets the
+  portal's own JavaScript handle the encryption. Works with any portal.
+
+```bash
+npm i playwright && npx playwright install chromium
+```
+
+### Development
+
+```bash
+npm test    # unit tests (Node's built-in test runner, zero dependencies)
+```
+
+MIT licensed.

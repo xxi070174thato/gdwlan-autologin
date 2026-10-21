@@ -39,4 +39,4 @@ async function isOnline(checkUrls, timeout) {
   return false;
 }
 
-module.exports = { detectPortal, isOnline };
+module.exports = { detectPortal, isOnline, portalFromLocation };

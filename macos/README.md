@@ -32,5 +32,5 @@ PLIST
 launchctl load ~/Library/LaunchAgents/com.gdwlan.autologin.plist
 ```
 
-> 注意：macOS Dock 应用与仓库核心（Node CLI）相互独立。Dock 应用是早期单学校版本；
-> 通用配置请使用仓库根目录的 Node CLI。后续会将两者统一到同一份配置。
+> macOS Dock 应用与仓库核心（Node CLI）共用同一份配置 `~/.gdwlan/config.json`：
+> 账号、密码、门户（留空则自动探测）、加密方式、检测间隔都从该文件读取。
